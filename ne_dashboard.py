@@ -3,7 +3,6 @@ import requests
 import pandas as pd
 import plotly.express as px
 from datetime import datetime
-import json
 
 st.set_page_config(page_title="売上ダッシュボード", page_icon="📊", layout="wide")
 
@@ -108,22 +107,28 @@ with tab1:
     daily = df.groupby('date').agg(
         売上合計=('receive_order_total_amount', 'sum'),
         受注件数=('receive_order_id', 'count')
-    ).reset_index()
+    ).reset_index().sort_values('date')
     fig = px.bar(daily, x='date', y='売上合計',
                  title='日別売上',
                  labels={'date': '日付', '売上合計': '売上(円)'},
-                 color_discrete_sequence=['#1a5c38'])
+                 color_discrete_sequence=['#1a5c38'],
+                 text='受注件数')
+    fig.update_xaxes(type='category')
+    fig.update_traces(texttemplate='%{text}件', textposition='outside')
     st.plotly_chart(fig, use_container_width=True)
 
 with tab2:
     monthly = df.groupby('month').agg(
         売上合計=('receive_order_total_amount', 'sum'),
         受注件数=('receive_order_id', 'count')
-    ).reset_index()
+    ).reset_index().sort_values('month')
     fig2 = px.bar(monthly, x='month', y='売上合計',
                   title='月別売上',
                   labels={'month': '月', '売上合計': '売上(円)'},
-                  color_discrete_sequence=['#2d8a5c'])
+                  color_discrete_sequence=['#2d8a5c'],
+                  text='受注件数')
+    fig2.update_xaxes(type='category')
+    fig2.update_traces(texttemplate='%{text}件', textposition='outside')
     st.plotly_chart(fig2, use_container_width=True)
 
 st.divider()
