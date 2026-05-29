@@ -15,12 +15,58 @@ st.set_page_config(
 st.markdown("""
 <style>
 .stApp { background-color: #f5f7fa; }
+
+/* サイドバー全体 */
 section[data-testid="stSidebar"] {
     background: linear-gradient(180deg, #0d2137 0%, #1a3a5c 100%);
     min-width: 220px !important;
 }
-section[data-testid="stSidebar"] * { color: #d0e4f7 !important; }
+section[data-testid="stSidebar"] * { color: #c8dcf0 !important; }
 section[data-testid="stSidebar"] hr { border-color: #2a4a6c !important; }
+
+/* サイドバーのボタン（統一スタイル） */
+section[data-testid="stSidebar"] .stButton > button {
+    background-color: transparent !important;
+    color: #c8dcf0 !important;
+    border: 1px solid rgba(255,255,255,0.15) !important;
+    border-radius: 6px !important;
+    text-align: left !important;
+    font-size: 13px !important;
+    padding: 8px 12px !important;
+    margin-bottom: 2px !important;
+    width: 100% !important;
+}
+section[data-testid="stSidebar"] .stButton > button:hover {
+    background-color: rgba(255,255,255,0.1) !important;
+    color: white !important;
+    border-color: rgba(255,255,255,0.3) !important;
+}
+
+/* サイドバーのエクスパンダー（ボタンと統一） */
+section[data-testid="stSidebar"] details {
+    background: transparent !important;
+    border: 1px solid rgba(255,255,255,0.15) !important;
+    border-radius: 6px !important;
+    margin-bottom: 4px !important;
+    padding: 2px 0 !important;
+}
+section[data-testid="stSidebar"] details summary {
+    color: #c8dcf0 !important;
+    font-size: 13px !important;
+    padding: 6px 12px !important;
+}
+section[data-testid="stSidebar"] details summary:hover {
+    background: rgba(255,255,255,0.08) !important;
+}
+section[data-testid="stSidebar"] details[open] {
+    background: rgba(255,255,255,0.05) !important;
+}
+section[data-testid="stSidebar"] details[open] summary {
+    color: white !important;
+    font-weight: 600 !important;
+}
+
+/* KPIカード */
 .kpi-wrap {
     background: white;
     border-radius: 10px;
@@ -143,7 +189,9 @@ def pct_diff(cur, prev):
 
 COLORS = ['#00bfa5','#1a6bc8','#ea580c','#7c3aed','#0891b2','#be185d']
 
+# =====================
 # サイドバー
+# =====================
 with st.sidebar:
     st.markdown("### 📊 売上ダッシュボード")
     st.markdown("---")
@@ -170,7 +218,9 @@ with st.sidebar:
         st.rerun()
     st.caption(f"最終更新: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
 
+# =====================
 # フィルターバー
+# =====================
 page = st.session_state.page
 today = date.today()
 
@@ -208,9 +258,11 @@ with fc5:
 
 st.markdown("---")
 
+# =====================
 # データ取得
-start_str = str(start_d)
-end_str   = str(end_d)
+# =====================
+start_str  = str(start_d)
+end_str    = str(end_d)
 prev_start = str(start_d - timedelta(days=365))
 prev_end   = str(end_d   - timedelta(days=365))
 
@@ -227,7 +279,9 @@ if df_cur.empty:
 
 unit_col = {'日': 'date', '週': 'week', '月': 'month'}[unit]
 
-# ページ描画
+# =====================
+# 全体サマリー / TOP
+# =====================
 if page in ('全体サマリー', 'TOP'):
     cur_sales  = df_cur['receive_order_total_amount'].sum()
     prev_sales = df_prev['receive_order_total_amount'].sum() if not df_prev.empty else 0
@@ -236,10 +290,9 @@ if page in ('全体サマリー', 'TOP'):
     cur_tanka  = cur_sales / cur_count if cur_count else 0
     prev_tanka = prev_sales / prev_count if prev_count else 0
 
-    ts_cur  = df_cur.groupby(unit_col)['receive_order_total_amount'].sum().reset_index()
+    ts_cur = df_cur.groupby(unit_col)['receive_order_total_amount'].sum().reset_index()
     ts_cur.columns = ['period', '売上']
 
-    # メイングラフ
     fig_main = go.Figure()
     fig_main.add_trace(go.Scatter(
         x=ts_cur['period'], y=ts_cur['売上'],
@@ -262,7 +315,6 @@ if page in ('全体サマリー', 'TOP'):
         yaxis=dict(showgrid=True, gridcolor='#f3f4f6', tickformat=',.0f'),
     )
 
-    # KPIカード
     k1, k2, k3, k4 = st.columns(4)
     with k1:
         st.markdown(f"""<div class="kpi-wrap">
@@ -305,7 +357,7 @@ if page in ('全体サマリー', 'TOP'):
         shop_cur  = df_cur.groupby('receive_order_shop_id')['receive_order_total_amount'].sum()
         shop_prev = df_prev.groupby('receive_order_shop_id')['receive_order_total_amount'].sum() if not df_prev.empty else pd.Series(dtype=float)
         shop_tbl  = pd.DataFrame({'対象': shop_cur, '前年': shop_prev}).fillna(0).reset_index()
-        shop_tbl.columns = ['店舗ID', '対象', '前年']
+        shop_tbl.columns = ['店舗ID','対象','前年']
         shop_tbl['前年比'] = shop_tbl.apply(lambda r: f"{r['対象']/r['前年']*100:.0f}%" if r['前年'] > 0 else '-', axis=1)
         shop_tbl['対象'] = shop_tbl['対象'].apply(lambda x: f"¥{int(x):,}")
         shop_tbl['前年'] = shop_tbl['前年'].apply(lambda x: f"¥{int(x):,}" if x > 0 else '-')
@@ -323,7 +375,7 @@ if page in ('全体サマリー', 'TOP'):
 elif page == '商品別売上':
     st.markdown("## 📦 商品別売上")
     ts = df_cur.groupby(unit_col)['receive_order_total_amount'].sum().reset_index()
-    ts.columns = ['period', '売上']
+    ts.columns = ['period','売上']
     fig = px.line(ts, x='period', y='売上', markers=True, color_discrete_sequence=['#00bfa5'])
     fig.update_xaxes(type='category')
     fig.update_layout(plot_bgcolor='white', paper_bgcolor='white', height=250, margin=dict(t=10,b=0))
@@ -405,7 +457,9 @@ elif page == '時間帯別分析':
 
 elif page == '受注一覧':
     st.markdown("## 📋 受注一覧")
-    show = df_cur[['receive_order_id','date','receive_order_shop_id','receive_order_total_amount','receive_order_order_status_name']].copy()
+    st.caption(f"対象件数: {len(df_cur)}件")
+    show = df_cur[['receive_order_id','date','receive_order_shop_id',
+                   'receive_order_total_amount','receive_order_order_status_name']].copy()
     show.columns = ['受注ID','注文日','店舗ID','合計金額(円)','ステータス']
     show['合計金額(円)'] = show['合計金額(円)'].apply(lambda x: f"¥{int(x):,}")
     st.dataframe(show, use_container_width=True, hide_index=True, height=600)
