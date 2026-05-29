@@ -24,7 +24,7 @@ section[data-testid="stSidebar"] {
 section[data-testid="stSidebar"] * { color: #c8dcf0 !important; }
 section[data-testid="stSidebar"] hr { border-color: #2a4a6c !important; }
 
-/* サイドバーのボタン（統一スタイル） */
+/* サイドバーのボタン */
 section[data-testid="stSidebar"] .stButton > button {
     background-color: transparent !important;
     color: #c8dcf0 !important;
@@ -42,26 +42,35 @@ section[data-testid="stSidebar"] .stButton > button:hover {
     border-color: rgba(255,255,255,0.3) !important;
 }
 
-/* サイドバーのエクスパンダー（ボタンと統一） */
-section[data-testid="stSidebar"] details {
+/* サイドバーのエクスパンダー */
+section[data-testid="stSidebar"] [data-testid="stExpander"] {
     background: transparent !important;
     border: 1px solid rgba(255,255,255,0.15) !important;
     border-radius: 6px !important;
     margin-bottom: 4px !important;
-    padding: 2px 0 !important;
 }
-section[data-testid="stSidebar"] details summary {
+section[data-testid="stSidebar"] [data-testid="stExpander"] > details,
+section[data-testid="stSidebar"] details,
+section[data-testid="stSidebar"] details > summary,
+section[data-testid="stSidebar"] .streamlit-expanderHeader {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+section[data-testid="stSidebar"] [data-testid="stExpander"] summary {
+    background: transparent !important;
     color: #c8dcf0 !important;
     font-size: 13px !important;
-    padding: 6px 12px !important;
 }
-section[data-testid="stSidebar"] details summary:hover {
+section[data-testid="stSidebar"] [data-testid="stExpander"] summary p {
+    color: #c8dcf0 !important;
+    font-size: 13px !important;
+}
+section[data-testid="stSidebar"] [data-testid="stExpander"] summary:hover,
+section[data-testid="stSidebar"] [data-testid="stExpander"] summary:hover p {
     background: rgba(255,255,255,0.08) !important;
+    color: white !important;
 }
-section[data-testid="stSidebar"] details[open] {
-    background: rgba(255,255,255,0.05) !important;
-}
-section[data-testid="stSidebar"] details[open] summary {
+section[data-testid="stSidebar"] [data-testid="stExpander"] > details[open] > summary p {
     color: white !important;
     font-weight: 600 !important;
 }
@@ -166,12 +175,9 @@ def make_df(orders):
 
 def sparkline(series, color='#00bfa5'):
     vals = list(series.values) if len(series) > 0 else [0, 0]
-    fig = go.Figure(go.Scatter(
-        y=vals, mode='lines',
-        line=dict(color=color, width=2)
-    ))
+    fig = go.Figure(go.Scatter(y=vals, mode='lines', line=dict(color=color, width=2)))
     fig.update_layout(
-        margin=dict(l=0, r=0, t=0, b=0), height=50,
+        margin=dict(l=0,r=0,t=0,b=0), height=50,
         plot_bgcolor='white', paper_bgcolor='white',
         xaxis=dict(visible=False, fixedrange=True),
         yaxis=dict(visible=False, fixedrange=True),
@@ -189,9 +195,6 @@ def pct_diff(cur, prev):
 
 COLORS = ['#00bfa5','#1a6bc8','#ea580c','#7c3aed','#0891b2','#be185d']
 
-# =====================
-# サイドバー
-# =====================
 with st.sidebar:
     st.markdown("### 📊 売上ダッシュボード")
     st.markdown("---")
@@ -218,9 +221,6 @@ with st.sidebar:
         st.rerun()
     st.caption(f"最終更新: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
 
-# =====================
-# フィルターバー
-# =====================
 page = st.session_state.page
 today = date.today()
 
@@ -258,9 +258,6 @@ with fc5:
 
 st.markdown("---")
 
-# =====================
-# データ取得
-# =====================
 start_str  = str(start_d)
 end_str    = str(end_d)
 prev_start = str(start_d - timedelta(days=365))
@@ -279,9 +276,6 @@ if df_cur.empty:
 
 unit_col = {'日': 'date', '週': 'week', '月': 'month'}[unit]
 
-# =====================
-# 全体サマリー / TOP
-# =====================
 if page in ('全体サマリー', 'TOP'):
     cur_sales  = df_cur['receive_order_total_amount'].sum()
     prev_sales = df_prev['receive_order_total_amount'].sum() if not df_prev.empty else 0
