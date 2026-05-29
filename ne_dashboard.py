@@ -12,85 +12,35 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# =====================
-# カスタムCSS
-# =====================
 st.markdown("""
 <style>
 .stApp { background-color: #f5f7fa; }
-
-/* サイドバー */
 section[data-testid="stSidebar"] {
     background: linear-gradient(180deg, #0d2137 0%, #1a3a5c 100%);
     min-width: 220px !important;
 }
 section[data-testid="stSidebar"] * { color: #d0e4f7 !important; }
 section[data-testid="stSidebar"] hr { border-color: #2a4a6c !important; }
-
-/* KPIカード */
 .kpi-wrap {
     background: white;
     border-radius: 10px;
     padding: 16px 18px 10px 18px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.07);
     margin-bottom: 4px;
-    min-height: 100px;
 }
 .kpi-label { font-size: 12px; color: #6b7280; font-weight: 600; margin-bottom: 4px; }
 .kpi-main  { font-size: 26px; font-weight: 800; color: #111827; line-height: 1.1; }
 .kpi-sub   { font-size: 11px; color: #9ca3af; margin-top: 2px; }
 .kpi-diff-up   { color: #16a34a; font-weight: 700; font-size: 12px; }
 .kpi-diff-down { color: #dc2626; font-weight: 700; font-size: 12px; }
-
-/* フィルターバー */
-.filter-bar {
-    background: white;
-    border-radius: 10px;
-    padding: 10px 16px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-    margin-bottom: 12px;
-}
-
-/* セクション見出し */
 .sec-title {
-    font-size: 14px;
-    font-weight: 700;
-    color: #1a3a5c;
-    margin: 16px 0 8px 0;
-    padding-bottom: 6px;
+    font-size: 14px; font-weight: 700; color: #1a3a5c;
+    margin: 16px 0 8px 0; padding-bottom: 6px;
     border-bottom: 2px solid #e5e7eb;
 }
-
-/* テーブル行 */
-.stDataFrame { border-radius: 8px; overflow: hidden; }
-
-/* ナビボタン */
-.nav-btn {
-    display: block;
-    padding: 8px 12px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 13px;
-    margin-bottom: 2px;
-    color: #d0e4f7;
-}
-.nav-btn:hover { background: rgba(255,255,255,0.1); }
-.nav-btn.active { background: rgba(255,255,255,0.15); color: white; font-weight: 700; }
-.nav-sub {
-    padding: 6px 12px 6px 24px;
-    font-size: 12px;
-    display: block;
-    color: #aac4e0;
-    cursor: pointer;
-    border-radius: 6px;
-}
-.nav-sub:hover { background: rgba(255,255,255,0.08); }
 </style>
 """, unsafe_allow_html=True)
 
-# =====================
-# 認証情報
-# =====================
 if 'access_token' not in st.session_state:
     try:
         st.session_state.access_token  = st.secrets['nextengine']['access_token']
@@ -169,13 +119,13 @@ def make_df(orders):
     return df
 
 def sparkline(series, color='#00bfa5'):
+    vals = list(series.values) if len(series) > 0 else [0, 0]
     fig = go.Figure(go.Scatter(
-        y=series.values, mode='lines',
-        line=dict(color=color, width=2),
-        fill='tozeroy', fillcolor=color.replace(')', ',0.15)').replace('rgb','rgba') if 'rgb' in color else color+'26'
+        y=vals, mode='lines',
+        line=dict(color=color, width=2)
     ))
     fig.update_layout(
-        margin=dict(l=0,r=0,t=0,b=0), height=55,
+        margin=dict(l=0, r=0, t=0, b=0), height=50,
         plot_bgcolor='white', paper_bgcolor='white',
         xaxis=dict(visible=False, fixedrange=True),
         yaxis=dict(visible=False, fixedrange=True),
@@ -193,13 +143,10 @@ def pct_diff(cur, prev):
 
 COLORS = ['#00bfa5','#1a6bc8','#ea580c','#7c3aed','#0891b2','#be185d']
 
-# =====================
 # サイドバー
-# =====================
 with st.sidebar:
     st.markdown("### 📊 売上ダッシュボード")
     st.markdown("---")
-
     nav_items = {
         'TOP': [],
         '全体サマリー': [],
@@ -208,7 +155,6 @@ with st.sidebar:
         '受注分析': ['受注一覧', 'リピート分析'],
         '在庫管理': ['在庫アラート'],
     }
-
     for nav, subs in nav_items.items():
         if not subs:
             if st.button(nav, key=f'nav_{nav}', use_container_width=True):
@@ -218,55 +164,51 @@ with st.sidebar:
                 for sub in subs:
                     if st.button(sub, key=f'nav_{sub}', use_container_width=True):
                         st.session_state.page = sub
-
     st.markdown("---")
     if st.button("🔄 データ更新", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
     st.caption(f"最終更新: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
 
-# =====================
 # フィルターバー
-# =====================
 page = st.session_state.page
 today = date.today()
-default_start = today.replace(day=1)
 
-with st.container():
-    fc1, fc2, fc3, fc4, fc5 = st.columns([2, 1.5, 1.5, 1.5, 1.5])
-    with fc1:
-        st.markdown(f"**{page}**  <small style='color:#6b7280'>※当日時点のデータを集計しています</small>", unsafe_allow_html=True)
-    with fc2:
-        period = st.selectbox("対象期間", ['今月','先月','今週','先週','カスタム'], label_visibility='collapsed')
-    with fc3:
-        if period == 'カスタム':
-            start_d = st.date_input("開始日", default_start, label_visibility='collapsed')
-        elif period == '今月':
-            start_d = today.replace(day=1)
-        elif period == '先月':
-            first = today.replace(day=1)
-            start_d = (first - timedelta(days=1)).replace(day=1)
-        elif period == '今週':
-            start_d = today - timedelta(days=today.weekday())
-        else:
-            start_d = today - timedelta(days=today.weekday() + 7)
-    with fc4:
-        if period == 'カスタム':
-            end_d = st.date_input("終了日", today, label_visibility='collapsed')
-        elif period == '先月':
-            end_d = today.replace(day=1) - timedelta(days=1)
-        elif period == '先週':
-            end_d = today - timedelta(days=today.weekday() + 1)
-        else:
-            end_d = today
-    with fc5:
-        unit = st.selectbox("集計単位", ['日','週','月'], label_visibility='collapsed')
+fc1, fc2, fc3, fc4, fc5 = st.columns([2.5, 1.5, 1.5, 1.5, 1.5])
+with fc1:
+    st.markdown(f"**{page}**　<small style='color:#6b7280'>※当日時点のデータを集計しています</small>", unsafe_allow_html=True)
+with fc2:
+    period = st.selectbox("対象期間", ['今月','先月','今週','先週','カスタム'], label_visibility='collapsed')
+with fc3:
+    if period == 'カスタム':
+        start_d = st.date_input("開始日", today.replace(day=1), label_visibility='collapsed')
+    elif period == '今月':
+        start_d = today.replace(day=1)
+    elif period == '先月':
+        start_d = (today.replace(day=1) - timedelta(days=1)).replace(day=1)
+    elif period == '今週':
+        start_d = today - timedelta(days=today.weekday())
+    else:
+        start_d = today - timedelta(days=today.weekday() + 7)
+    if period != 'カスタム':
+        st.markdown(f"<small style='color:#6b7280'>{start_d}</small>", unsafe_allow_html=True)
+with fc4:
+    if period == 'カスタム':
+        end_d = st.date_input("終了日", today, label_visibility='collapsed')
+    elif period == '先月':
+        end_d = today.replace(day=1) - timedelta(days=1)
+    elif period == '先週':
+        end_d = today - timedelta(days=today.weekday() + 1)
+    else:
+        end_d = today
+    if period != 'カスタム':
+        st.markdown(f"<small style='color:#6b7280'>{end_d}</small>", unsafe_allow_html=True)
+with fc5:
+    unit = st.selectbox("集計単位", ['日','週','月'], label_visibility='collapsed')
 
 st.markdown("---")
 
-# =====================
 # データ取得
-# =====================
 start_str = str(start_d)
 end_str   = str(end_d)
 prev_start = str(start_d - timedelta(days=365))
@@ -283,14 +225,10 @@ if df_cur.empty:
     st.warning("選択期間に受注データがありません。")
     st.stop()
 
-# 集計単位
 unit_col = {'日': 'date', '週': 'week', '月': 'month'}[unit]
 
-# =====================
-# 全体サマリー / TOP
-# =====================
+# ページ描画
 if page in ('全体サマリー', 'TOP'):
-    # KPI計算
     cur_sales  = df_cur['receive_order_total_amount'].sum()
     prev_sales = df_prev['receive_order_total_amount'].sum() if not df_prev.empty else 0
     cur_count  = len(df_cur)
@@ -298,24 +236,19 @@ if page in ('全体サマリー', 'TOP'):
     cur_tanka  = cur_sales / cur_count if cur_count else 0
     prev_tanka = prev_sales / prev_count if prev_count else 0
 
-    # 時系列
     ts_cur  = df_cur.groupby(unit_col)['receive_order_total_amount'].sum().reset_index()
-    ts_cur.columns  = ['period', '売上']
-    if not df_prev.empty:
-        ts_prev = df_prev.groupby(unit_col)['receive_order_total_amount'].sum().reset_index()
-        ts_prev.columns = ['period', '売上']
-    else:
-        ts_prev = pd.DataFrame(columns=['period','売上'])
+    ts_cur.columns = ['period', '売上']
 
     # メイングラフ
     fig_main = go.Figure()
     fig_main.add_trace(go.Scatter(
         x=ts_cur['period'], y=ts_cur['売上'],
         mode='lines+markers', name='対象',
-        line=dict(color='#00bfa5', width=2.5),
-        marker=dict(size=5)
+        line=dict(color='#00bfa5', width=2.5), marker=dict(size=5)
     ))
-    if not ts_prev.empty:
+    if not df_prev.empty:
+        ts_prev = df_prev.groupby(unit_col)['receive_order_total_amount'].sum().reset_index()
+        ts_prev.columns = ['period', '売上']
         fig_main.add_trace(go.Scatter(
             x=ts_prev['period'], y=ts_prev['売上'],
             mode='lines', name='前年',
@@ -325,11 +258,11 @@ if page in ('全体サマリー', 'TOP'):
         height=200, margin=dict(l=0,r=0,t=10,b=0),
         plot_bgcolor='white', paper_bgcolor='white',
         legend=dict(orientation='h', y=1.15, x=1, xanchor='right'),
-        xaxis=dict(showgrid=False, tickfont=dict(size=10)),
-        yaxis=dict(showgrid=True, gridcolor='#f3f4f6', tickformat=',.0f', tickfont=dict(size=10)),
+        xaxis=dict(showgrid=False, tickfont=dict(size=10), type='category'),
+        yaxis=dict(showgrid=True, gridcolor='#f3f4f6', tickformat=',.0f'),
     )
 
-    # KPIカード行
+    # KPIカード
     k1, k2, k3, k4 = st.columns(4)
     with k1:
         st.markdown(f"""<div class="kpi-wrap">
@@ -337,7 +270,7 @@ if page in ('全体サマリー', 'TOP'):
             <div class="kpi-main">¥{int(cur_sales):,}</div>
             <div class="kpi-sub">前年 ¥{int(prev_sales):,} {pct_diff(cur_sales, prev_sales)}</div>
         </div>""", unsafe_allow_html=True)
-
+        st.plotly_chart(sparkline(ts_cur['売上']), use_container_width=True, config={'displayModeBar': False})
     with k2:
         ts_c = df_cur.groupby(unit_col)['receive_order_id'].count()
         st.markdown(f"""<div class="kpi-wrap">
@@ -345,104 +278,80 @@ if page in ('全体サマリー', 'TOP'):
             <div class="kpi-main">{cur_count:,}</div>
             <div class="kpi-sub">前年 {prev_count:,} {pct_diff(cur_count, prev_count)}</div>
         </div>""", unsafe_allow_html=True)
-        st.plotly_chart(sparkline(ts_c), use_container_width=True, config={'displayModeBar': False})
-
+        st.plotly_chart(sparkline(ts_c, '#1a6bc8'), use_container_width=True, config={'displayModeBar': False})
     with k3:
+        ts_t = df_cur.groupby(unit_col).apply(
+            lambda x: x['receive_order_total_amount'].sum() / len(x) if len(x) > 0 else 0
+        )
         st.markdown(f"""<div class="kpi-wrap">
             <div class="kpi-label">受注単価</div>
             <div class="kpi-main">¥{int(cur_tanka):,}</div>
             <div class="kpi-sub">前年 ¥{int(prev_tanka):,} {pct_diff(cur_tanka, prev_tanka)}</div>
         </div>""", unsafe_allow_html=True)
-        ts_t = df_cur.groupby(unit_col).apply(lambda x: x['receive_order_total_amount'].sum() / len(x))
         st.plotly_chart(sparkline(ts_t, '#ea580c'), use_container_width=True, config={'displayModeBar': False})
-
     with k4:
-        shop_count = df_cur['receive_order_shop_id'].nunique()
         st.markdown(f"""<div class="kpi-wrap">
             <div class="kpi-label">対象店舗数</div>
-            <div class="kpi-main">{shop_count}</div>
-            <div class="kpi-sub">集計期間: {start_str} ～ {end_str}</div>
+            <div class="kpi-main">{df_cur['receive_order_shop_id'].nunique()}</div>
+            <div class="kpi-sub">{start_str} ～ {end_str}</div>
         </div>""", unsafe_allow_html=True)
 
-    # 売上グラフ
     st.markdown('<div class="sec-title">📈 受注金額推移</div>', unsafe_allow_html=True)
     st.plotly_chart(fig_main, use_container_width=True, config={'displayModeBar': False})
 
-    # テーブル2列
     t1, t2 = st.columns(2)
     with t1:
         st.markdown('<div class="sec-title">🏪 店舗別データ</div>', unsafe_allow_html=True)
         shop_cur  = df_cur.groupby('receive_order_shop_id')['receive_order_total_amount'].sum()
         shop_prev = df_prev.groupby('receive_order_shop_id')['receive_order_total_amount'].sum() if not df_prev.empty else pd.Series(dtype=float)
-        shop_tbl = pd.DataFrame({'対象': shop_cur, '前年': shop_prev}).fillna(0).reset_index()
+        shop_tbl  = pd.DataFrame({'対象': shop_cur, '前年': shop_prev}).fillna(0).reset_index()
         shop_tbl.columns = ['店舗ID', '対象', '前年']
-        shop_tbl['前年比'] = shop_tbl.apply(
-            lambda r: f"{r['対象']/r['前年']*100:.0f}%" if r['前年'] > 0 else '-', axis=1)
+        shop_tbl['前年比'] = shop_tbl.apply(lambda r: f"{r['対象']/r['前年']*100:.0f}%" if r['前年'] > 0 else '-', axis=1)
         shop_tbl['対象'] = shop_tbl['対象'].apply(lambda x: f"¥{int(x):,}")
         shop_tbl['前年'] = shop_tbl['前年'].apply(lambda x: f"¥{int(x):,}" if x > 0 else '-')
         st.dataframe(shop_tbl, use_container_width=True, hide_index=True)
-
     with t2:
         st.markdown('<div class="sec-title">📊 ステータス別データ</div>', unsafe_allow_html=True)
         status_tbl = df_cur.groupby('receive_order_order_status_name').agg(
             受注件数=('receive_order_id','count'),
             売上合計=('receive_order_total_amount','sum')
         ).reset_index()
-        status_tbl.columns = ['ステータス', '受注件数', '売上合計']
+        status_tbl.columns = ['ステータス','受注件数','売上合計']
         status_tbl['売上合計'] = status_tbl['売上合計'].apply(lambda x: f"¥{int(x):,}")
         st.dataframe(status_tbl, use_container_width=True, hide_index=True)
 
-# =====================
-# 商品別売上
-# =====================
 elif page == '商品別売上':
     st.markdown("## 📦 商品別売上")
-    shop_sel = st.selectbox("店舗", ['すべて'] + list(df_cur['receive_order_shop_id'].unique()))
-    df_f = df_cur if shop_sel == 'すべて' else df_cur[df_cur['receive_order_shop_id'] == shop_sel]
-
-    ts = df_f.groupby(unit_col)['receive_order_total_amount'].sum().reset_index()
+    ts = df_cur.groupby(unit_col)['receive_order_total_amount'].sum().reset_index()
     ts.columns = ['period', '売上']
-    fig = px.line(ts, x='period', y='売上', markers=True,
-                  color_discrete_sequence=['#00bfa5'],
-                  labels={'period': unit, '売上': '売上(円)'})
+    fig = px.line(ts, x='period', y='売上', markers=True, color_discrete_sequence=['#00bfa5'])
+    fig.update_xaxes(type='category')
     fig.update_layout(plot_bgcolor='white', paper_bgcolor='white', height=250, margin=dict(t=10,b=0))
     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-
-    st.markdown('<div class="sec-title">📊 店舗別集計</div>', unsafe_allow_html=True)
-    tbl = df_f.groupby('receive_order_shop_id').agg(
-        受注件数=('receive_order_id','count'),
-        売上合計=('receive_order_total_amount','sum')
+    tbl = df_cur.groupby('receive_order_shop_id').agg(
+        受注件数=('receive_order_id','count'), 売上合計=('receive_order_total_amount','sum')
     ).reset_index().sort_values('売上合計', ascending=False)
-    tbl.columns = ['店舗ID', '受注件数', '売上合計']
+    tbl.columns = ['店舗ID','受注件数','売上合計']
     tbl['売上合計'] = tbl['売上合計'].apply(lambda x: f"¥{int(x):,}")
     st.dataframe(tbl, use_container_width=True, hide_index=True)
 
-# =====================
-# 商品ランキング
-# =====================
 elif page == '商品ランキング':
     st.markdown("## 🏆 商品ランキング")
-    st.info("商品別データには受注明細APIが必要です。現在は店舗別ランキングを表示しています。")
-    shop_rank = df_cur.groupby('receive_order_shop_id').agg(
-        受注件数=('receive_order_id','count'),
-        売上合計=('receive_order_total_amount','sum'),
+    st.info("商品別ランキングには受注明細APIが必要です。現在は店舗別ランキングを表示しています。")
+    rank = df_cur.groupby('receive_order_shop_id').agg(
+        受注件数=('receive_order_id','count'), 売上合計=('receive_order_total_amount','sum')
     ).reset_index().sort_values('売上合計', ascending=False).reset_index(drop=True)
-    shop_rank.index += 1
-    shop_rank.columns = ['店舗ID', '受注件数', '売上合計']
-    shop_rank['売上合計'] = shop_rank['売上合計'].apply(lambda x: f"¥{int(x):,}")
-    st.dataframe(shop_rank, use_container_width=True)
+    rank.index += 1
+    rank.columns = ['店舗ID','受注件数','売上合計']
+    rank['売上合計'] = rank['売上合計'].apply(lambda x: f"¥{int(x):,}")
+    st.dataframe(rank, use_container_width=True)
 
-# =====================
-# 店舗別売上
-# =====================
 elif page == '店舗別売上':
     st.markdown("## 🏪 店舗別売上")
     shop = df_cur.groupby('receive_order_shop_id').agg(
-        売上合計=('receive_order_total_amount','sum'),
-        受注件数=('receive_order_id','count')
+        売上合計=('receive_order_total_amount','sum'), 受注件数=('receive_order_id','count')
     ).reset_index().sort_values('売上合計', ascending=False)
-    shop.columns = ['店舗ID', '売上合計', '受注件数']
-
+    shop.columns = ['店舗ID','売上合計','受注件数']
     c1, c2 = st.columns(2)
     with c1:
         fig = px.bar(shop, x='店舗ID', y='売上合計', color='店舗ID',
@@ -452,93 +361,64 @@ elif page == '店舗別売上':
         fig.update_layout(plot_bgcolor='white', paper_bgcolor='white', showlegend=False, height=280, margin=dict(t=10,b=0))
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
     with c2:
-        fig2 = px.pie(shop, names='店舗ID', values='売上合計', hole=0.45,
-                      color_discrete_sequence=COLORS)
+        fig2 = px.pie(shop, names='店舗ID', values='売上合計', hole=0.45, color_discrete_sequence=COLORS)
         fig2.update_layout(paper_bgcolor='white', height=280, margin=dict(t=10,b=0))
         st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
-
     shop['売上合計'] = shop['売上合計'].apply(lambda x: f"¥{int(x):,}")
     st.dataframe(shop, use_container_width=True, hide_index=True)
 
-# =====================
-# 曜日別分析
-# =====================
 elif page == '曜日別分析':
     st.markdown("## 📅 曜日別分析")
     weekday_order = ['月','火','水','木','金','土','日']
     wday = df_cur.groupby('weekday_name').agg(
-        売上合計=('receive_order_total_amount','sum'),
-        受注件数=('receive_order_id','count')
+        売上合計=('receive_order_total_amount','sum'), 受注件数=('receive_order_id','count')
     ).reset_index()
     wday['weekday_name'] = pd.Categorical(wday['weekday_name'], categories=weekday_order, ordered=True)
     wday = wday.sort_values('weekday_name')
-
     c1, c2 = st.columns(2)
     with c1:
-        fig = px.bar(wday, x='weekday_name', y='売上合計',
-                     color_discrete_sequence=['#00bfa5'], labels={'weekday_name':'曜日'}, text='売上合計')
-        fig.update_traces(texttemplate='¥%{text:,.0f}', textposition='outside')
+        fig = px.bar(wday, x='weekday_name', y='売上合計', color_discrete_sequence=['#00bfa5'], labels={'weekday_name':'曜日'})
         fig.update_layout(plot_bgcolor='white', paper_bgcolor='white', height=300, margin=dict(t=10,b=0))
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
     with c2:
-        fig2 = px.bar(wday, x='weekday_name', y='受注件数',
-                      color_discrete_sequence=['#1a6bc8'], labels={'weekday_name':'曜日'})
+        fig2 = px.bar(wday, x='weekday_name', y='受注件数', color_discrete_sequence=['#1a6bc8'], labels={'weekday_name':'曜日'})
         fig2.update_layout(plot_bgcolor='white', paper_bgcolor='white', height=300, margin=dict(t=10,b=0))
         st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
 
-# =====================
-# 時間帯別分析
-# =====================
 elif page == '時間帯別分析':
     st.markdown("## 🕐 時間帯別分析")
     hour_df = df_cur.groupby('hour').agg(
-        売上合計=('receive_order_total_amount','sum'),
-        受注件数=('receive_order_id','count')
+        売上合計=('receive_order_total_amount','sum'), 受注件数=('receive_order_id','count')
     ).reset_index().sort_values('hour')
     hour_df['hour_label'] = hour_df['hour'].apply(lambda x: f"{x:02d}時")
-
     c1, c2 = st.columns(2)
     with c1:
-        fig = px.bar(hour_df, x='hour_label', y='売上合計',
-                     color_discrete_sequence=['#00bfa5'], labels={'hour_label':'時間帯'})
+        fig = px.bar(hour_df, x='hour_label', y='売上合計', color_discrete_sequence=['#00bfa5'], labels={'hour_label':'時間帯'})
         fig.update_xaxes(type='category')
         fig.update_layout(plot_bgcolor='white', paper_bgcolor='white', height=300, margin=dict(t=10,b=0))
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
     with c2:
-        fig2 = px.bar(hour_df, x='hour_label', y='受注件数',
-                      color_discrete_sequence=['#ea580c'], labels={'hour_label':'時間帯'})
+        fig2 = px.bar(hour_df, x='hour_label', y='受注件数', color_discrete_sequence=['#ea580c'], labels={'hour_label':'時間帯'})
         fig2.update_xaxes(type='category')
         fig2.update_layout(plot_bgcolor='white', paper_bgcolor='white', height=300, margin=dict(t=10,b=0))
         st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
 
-# =====================
-# 受注一覧
-# =====================
 elif page == '受注一覧':
     st.markdown("## 📋 受注一覧")
-    st.caption(f"対象件数: {len(df_cur)}件")
-    show = df_cur[['receive_order_id','date','receive_order_shop_id',
-                   'receive_order_total_amount','receive_order_order_status_name']].copy()
+    show = df_cur[['receive_order_id','date','receive_order_shop_id','receive_order_total_amount','receive_order_order_status_name']].copy()
     show.columns = ['受注ID','注文日','店舗ID','合計金額(円)','ステータス']
     show['合計金額(円)'] = show['合計金額(円)'].apply(lambda x: f"¥{int(x):,}")
     st.dataframe(show, use_container_width=True, hide_index=True, height=600)
 
-# =====================
-# リピート分析
-# =====================
 elif page == 'リピート分析':
     st.markdown("## 🔁 リピート分析")
-    st.info("リピート分析には購入者IDが必要です。現在は店舗別の傾向を表示しています。")
+    st.info("リピート分析には購入者IDが必要です。現在は店舗別月次推移を表示しています。")
     monthly = df_cur.groupby(['month','receive_order_shop_id'])['receive_order_total_amount'].sum().reset_index()
-    monthly.columns = ['月', '店舗ID', '売上']
-    fig = px.line(monthly, x='月', y='売上', color='店舗ID',
-                  color_discrete_sequence=COLORS, markers=True)
+    monthly.columns = ['月','店舗ID','売上']
+    fig = px.line(monthly, x='月', y='売上', color='店舗ID', color_discrete_sequence=COLORS, markers=True)
     fig.update_layout(plot_bgcolor='white', paper_bgcolor='white', height=350, margin=dict(t=10,b=0))
     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
-# =====================
-# 在庫アラート
-# =====================
 elif page == '在庫アラート':
     st.markdown("## ⚠️ 在庫アラート")
     threshold = st.slider("アラート閾値（個以下）", 1, 100, 10)
