@@ -54,8 +54,7 @@ def get_all_orders():
                 'receive_order_shop_id,'
                 'receive_order_date,'
                 'receive_order_total_amount,'
-                'receive_order_order_status_name,'
-                'receive_order_buyer_name'
+                'receive_order_order_status_name'
             ),
         })
         if result.get('result') != 'success':
